@@ -23,18 +23,19 @@ type state is (IDLE, MEM_WAIT, LOAD_XP, LOAD_YP, STORE_XP, STORE_YP, LOAD_MASK, 
 
 signal P_X, P_Y, C_X, C_Y, MASK, O_MASK: std_logic_vector(7 downto 0);
 
-signal count: std_logic_vector(2 downto 0) := "000"; -- create counter for current centroid and initialize to zero
+signal centroid_curr, centroid_next: std_logic_vector(2 downto 0) := "000";
 
 signal state_curr, state_next, return_curr, return_next: state := IDLE;
 
 signal min_dist, temp_dist, temp_dist_x, temp_dist_y : std_logic_vector (8 downto 0) := "000000000";  
 
 signal trigger: std_logic := '0';
+signal discard : std_logic := '0';
     
     begin
 
 -- Here I define the process to handle reset signals and clock steps
-    CLOCK_PROCESS : process(i_clk, i_rst)
+    process(i_clk, i_rst)
     begin
         if(i_rst='1') then
             state_curr <= IDLE;
@@ -43,6 +44,7 @@ signal trigger: std_logic := '0';
             end if;
             state_curr <= state_next;
             return_curr <= return_next;
+            centroid_curr <= centroid_next;
         end if;
     end process;
     
@@ -55,7 +57,7 @@ signal trigger: std_logic := '0';
             when LOAD_XC => return_next <= STORE_XC;
             when LOAD_YC => return_next <= STORE_YC;
             when WRITE_RES => return_next <= SIM_END;
-            when others => return_next <= return_next;
+            when others => null;
         end case;
     end process;
 
@@ -70,6 +72,21 @@ signal trigger: std_logic := '0';
             when others => null;
         end case;
     end process;
+
+    CENTROID_PROCESS : process(state_curr)
+    begin
+        case(state_curr) is
+            when CHECK_MASK => discard <= MASK(to_integer(unsigned(centroid_curr)));
+                                if(MASK(to_integer(unsigned(centroid_curr))) = '0') then
+                                     centroid_next <= std_logic_vector(unsigned(centroid_curr) + 1);
+                                else centroid_next <= centroid_curr;
+                                end if;
+            when CHECK_DIST => discard <= '0';
+                                centroid_next <= std_logic_vector(unsigned(centroid_curr) + 1);
+            when others => centroid_next <= centroid_curr;
+                            discard <= '0';
+        end case;
+    end process;
     
     NEXTSTATE_PROCESS : process(state_curr, i_start, trigger)
     begin
@@ -80,12 +97,9 @@ signal trigger: std_logic := '0';
         C_X <= C_X;
         MASK <= MASK;
         O_MASK <= O_MASK;
-        count <= count;
         min_dist <= min_dist;
         temp_dist_x <= temp_dist_x;
         temp_dist_y <= temp_dist_y;
-
-        -- TODO: Maybe use i_data'event to trigger update when the state remains the same 
         
         case state_curr is       
             when IDLE =>
@@ -107,14 +121,13 @@ signal trigger: std_logic := '0';
             when STORE_MASK => state_next <= CHECK_MASK;
                                
             when CHECK_MASK => -- Check whether the current centroid is enabled or skip                                
-                                if( count = "111") then 
+                                if( centroid_curr = "111") then 
                                     state_next <= WRITE_RES;
                                 else 
-                                    if(MASK(to_integer(unsigned(count))) = '1') then
+                                    if(MASK(to_integer(unsigned(centroid_curr))) = '1') then
                                         state_next <= LOAD_XC;
-                                    elsif(MASK(to_integer(unsigned(count))) = '0') then
-                                        -- The centroid is not enabled, increment the count and jump to the next one                                    
-                                        count <= std_logic_vector(unsigned(count) + 1);
+                                    elsif(MASK(to_integer(unsigned(centroid_curr))) = '0') then
+                                        -- The centroid is not enabled, increment the centroid and jump to the next one                                    
                                         state_next <= CHECK_MASK;                                    
                                     end if;
                                 end if;
@@ -137,19 +150,17 @@ signal trigger: std_logic := '0';
                      -- The distance is not initialized -> store & save
             when CHECK_DIST =>  if(min_dist = "000000000" or temp_dist < min_dist) then 
                                     O_MASK <= "00000000"; -- clear the output mask;                                    
-                                    O_MASK(to_integer(unsigned(count))) <= '1';
+                                    O_MASK(to_integer(unsigned(centroid_curr))) <= '1';
                                     min_dist <= temp_dist;
                                 elsif(min_dist = temp_dist) then
-                                    O_MASK(to_integer(unsigned(count))) <= '1'; -- just add the bit to the mask;
+                                    O_MASK(to_integer(unsigned(centroid_curr))) <= '1'; -- just add the bit to the mask;
                                 end if;
-                                count <= std_logic_vector(unsigned(count) + 1);
                                 state_next <= CHECK_MASK;          
             
             -- Here I handle the logic of waiting for the memory to output the data 
             when MEM_WAIT => state_next <= return_curr;
             
             when WRITE_RES => state_next <= MEM_WAIT;
-                              return_next <= SIM_END;
             
             when SIM_END => if(i_start = '1') then 
                                 state_next <= SIM_END;
@@ -183,13 +194,13 @@ signal trigger: std_logic := '0';
                     o_data <= "00000000";
         when LOAD_XC => 
                     o_done <= '0';
-                    o_address <= std_logic_vector(unsigned("000000000000"&count&"0") + 1);
+                    o_address <= std_logic_vector(unsigned("000000000000"&centroid_curr&"0") + 1);
                     o_en <= '1';
                     o_we <= '0';
                     o_data <= "00000000";
         when LOAD_YC => 
                     o_done <= '0';
-                    o_address <= std_logic_vector(unsigned("000000000000"&count&"0") + 2);
+                    o_address <= std_logic_vector(unsigned("000000000000"&centroid_curr&"0") + 2);
                     o_en <= '1';
                     o_we <= '0';
                     o_data <= "00000000";
@@ -199,11 +210,15 @@ signal trigger: std_logic := '0';
                     o_en <= '1';
                     o_we <= '1';
                     o_data <= O_MASK;
-        when SIM_END => if(i_start = '1') then
-                            o_done <= '1';
-                        else 
-                            o_done <= '0';
-                        end if;
+        when SIM_END => 
+                    if(i_start = '1') then
+                        o_done <= '1';
+                    else o_done <= '0';
+                    end if;
+                    o_address <= "0000000000000000";
+                    o_en <= '0';
+                    o_we <= '0';
+                    o_data <= "00000000";
         when others => 
                     o_done <= '0';
                     o_address <= "0000000000000000";
