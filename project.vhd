@@ -36,16 +36,16 @@ signal done_curr, done_next : std_logic := '0';
 -- Here I define the process to handle reset signals and clock steps
     process(i_clk, i_rst)
     begin
-        if(rising_edge(i_rst)) then
+        if(i_rst = '1') then
            centroid_curr <= "000";
            O_MASK_CURR <= "00000000";
            done_curr <= '0'; 
            state_curr <= IDLE;
-        elsif(rising_edge(i_clk)) then
-            state_curr <= state_next;
+        elsif(rising_edge(i_clk)) then            
             centroid_curr <= centroid_next;
             O_MASK_CURR <= O_MASK_NEXT;
             done_curr <= done_next;
+            state_curr <= state_next;
         end if;
     end process;
     
@@ -81,7 +81,7 @@ signal done_curr, done_next : std_logic := '0';
             done_next <= '0';
             case state_curr is       
                 when IDLE =>
-                            if(rising_edge(i_start)) then
+                            if(i_start = '1') then
                                 state_next <= LOAD_XP;
                             else state_next <= IDLE;
                             end if;
