@@ -19,18 +19,17 @@ architecture Behavioral of project_reti_logiche is
 
 -- Here I define the state necessary to carry out the computation
 -- the first one is the IDLE state, which waits for the start signal
-type state is (IDLE, MEM_WAIT, LOAD_XP, LOAD_YP, STORE_XP, STORE_YP, LOAD_MASK, STORE_MASK, CHECK_MASK, LOAD_XC, LOAD_YC, STORE_XC, STORE_YC, COMPUTE_DIST_PARTIAL, COMPUTE_DIST_TOTAL, CHECK_DIST, WRITE_RES, SIM_END);
+type state is (IDLE, LOAD_XP, LOAD_YP, STORE_XP, STORE_YP, LOAD_MASK, STORE_MASK, CHECK_MASK, LOAD_XC, LOAD_YC, STORE_XC, STORE_YC, COMPUTE_DIST, CHECK_DIST, WRITE_RES, SIM_END);
 
-signal P_X, P_Y, C_X, C_Y, MASK, O_MASK: std_logic_vector(7 downto 0);
+signal P_X, P_Y, C_X, C_Y, MASK, O_MASK: std_logic_vector(7 downto 0) := "00000000";
 
 signal centroid_curr, centroid_next: std_logic_vector(2 downto 0) := "000";
 
-signal state_curr, state_next, return_curr, return_next: state := IDLE;
+signal state_curr, state_next : state := IDLE;
 
-signal min_dist, temp_dist, temp_dist_x, temp_dist_y : std_logic_vector (8 downto 0) := "000000000";  
+signal min_dist, temp_dist: std_logic_vector (8 downto 0) := "000000000";  
 
 signal trigger: std_logic := '0';
-signal discard : std_logic := '0';
     
     begin
 
@@ -43,24 +42,10 @@ signal discard : std_logic := '0';
             if(state_next = state_curr) then trigger <= not(trigger);
             end if;
             state_curr <= state_next;
-            return_curr <= return_next;
             centroid_curr <= centroid_next;
         end if;
     end process;
     
-    RETURN_PROCESS : process(state_curr)
-    begin
-        case state_curr is  
-            when LOAD_XP => return_next <= STORE_XP;
-            when LOAD_YP => return_next <= STORE_YP;
-            when LOAD_MASK => return_next <= STORE_MASK;
-            when LOAD_XC => return_next <= STORE_XC;
-            when LOAD_YC => return_next <= STORE_YC;
-            when WRITE_RES => return_next <= SIM_END;
-            when others => null;
-        end case;
-    end process;
-
     DATAUPDATE_PROCESS : process(state_curr, i_data)
     begin
         case(state_curr) is
@@ -72,51 +57,35 @@ signal discard : std_logic := '0';
             when others => null;
         end case;
     end process;
-
-    CENTROID_PROCESS : process(state_curr)
-    begin
-        case(state_curr) is
-            when CHECK_MASK => discard <= MASK(to_integer(unsigned(centroid_curr)));
-                                if(MASK(to_integer(unsigned(centroid_curr))) = '0') then
-                                     centroid_next <= std_logic_vector(unsigned(centroid_curr) + 1);
-                                else centroid_next <= centroid_curr;
-                                end if;
-            when CHECK_DIST => discard <= '0';
-                                centroid_next <= std_logic_vector(unsigned(centroid_curr) + 1);
-            when others => centroid_next <= centroid_curr;
-                            discard <= '0';
-        end case;
-    end process;
     
     NEXTSTATE_PROCESS : process(state_curr, i_start, trigger)
     begin
         -- Keep signals
-        P_X <= P_X;
-        P_Y <= P_Y;
-        C_Y <= C_Y;
-        C_X <= C_X;
-        MASK <= MASK;
-        O_MASK <= O_MASK;
-        min_dist <= min_dist;
-        temp_dist_x <= temp_dist_x;
-        temp_dist_y <= temp_dist_y;
+        --P_X <= P_X;
+        --P_Y <= P_Y;
+        --C_Y <= C_Y;
+        --C_X <= C_X;
+        --MASK <= MASK;
+        --O_MASK <= O_MASK;
+        --min_dist <= min_dist;       
+        centroid_next <= centroid_curr;
         
         case state_curr is       
             when IDLE =>
                         if(i_start = '1') then
                             state_next <= LOAD_XP;
-                         else state_next <= IDLE;
-                         end if;
+                        else state_next <= IDLE;
+                        end if;
 
-            when LOAD_XP => state_next <= MEM_WAIT;    
+            when LOAD_XP => state_next <= STORE_XP;    
             
             when STORE_XP => state_next <= LOAD_YP;                                      
                             
-            when LOAD_YP => state_next <= MEM_WAIT;     
+            when LOAD_YP => state_next <= STORE_YP;     
                             
             when STORE_YP => state_next <= LOAD_MASK;
 
-            when LOAD_MASK => state_next <= MEM_WAIT;
+            when LOAD_MASK => state_next <= STORE_MASK;
 
             when STORE_MASK => state_next <= CHECK_MASK;
                                
@@ -124,28 +93,24 @@ signal discard : std_logic := '0';
                                 if( centroid_curr = "111") then 
                                     state_next <= WRITE_RES;
                                 else 
-                                    if(MASK(to_integer(unsigned(centroid_curr))) = '1') then
+                                    if(MASK(to_integer(unsigned(centroid_curr))) = '1') then                                        
+                                        centroid_next <= centroid_curr;
                                         state_next <= LOAD_XC;
                                     elsif(MASK(to_integer(unsigned(centroid_curr))) = '0') then
                                         -- The centroid is not enabled, increment the centroid and jump to the next one                                    
+                                        centroid_next <= std_logic_vector(unsigned(centroid_curr) + 1);
                                         state_next <= CHECK_MASK;                                    
                                     end if;
                                 end if;
                                 
             -- Load and store centroids position
-            when LOAD_XC => state_next <= MEM_WAIT;
-            when LOAD_YC => state_next <= MEM_WAIT;
+            when LOAD_XC => state_next <= STORE_XC;
+            when LOAD_YC => state_next <= STORE_YC;
             when STORE_XC => state_next <= LOAD_YC;
-            when STORE_YC => state_next <= COMPUTE_DIST_PARTIAL;
-                                
-            -- Compute and compare the distance
-            when COMPUTE_DIST_PARTIAL => 
-                                 temp_dist_x <= std_logic_vector(abs(signed(unsigned('0'&P_X) - unsigned('0'&C_X))));
-                                 temp_dist_y <= std_logic_vector(abs(signed(unsigned('0'&P_Y) - unsigned('0'&C_Y))));
-                                 state_next <= COMPUTE_DIST_TOTAL;
-                                 
-            when COMPUTE_DIST_TOTAL => temp_dist <= std_logic_vector(unsigned(temp_dist_x) + unsigned(temp_dist_y));
-                                       state_next <= CHECK_DIST;
+            when STORE_YC => state_next <= COMPUTE_DIST;
+                                                                
+            when COMPUTE_DIST => temp_dist <= std_logic_vector(abs(signed(unsigned('0'&P_X) - unsigned('0'&C_X))) + abs(signed(unsigned('0'&P_Y) - unsigned('0'&C_Y))));
+                                 state_next <= CHECK_DIST;
                      
                      -- The distance is not initialized -> store & save
             when CHECK_DIST =>  if(min_dist = "000000000" or temp_dist < min_dist) then 
@@ -153,14 +118,14 @@ signal discard : std_logic := '0';
                                     O_MASK(to_integer(unsigned(centroid_curr))) <= '1';
                                     min_dist <= temp_dist;
                                 elsif(min_dist = temp_dist) then
-                                    O_MASK(to_integer(unsigned(centroid_curr))) <= '1'; -- just add the bit to the mask;
+                                    O_MASK(to_integer(unsigned(centroid_curr))) <= '1';
+                                else 
+                                    O_MASK(to_integer(unsigned(centroid_curr))) <= '0';
                                 end if;
+                                centroid_next <= std_logic_vector(unsigned(centroid_curr) + 1);
                                 state_next <= CHECK_MASK;          
-            
-            -- Here I handle the logic of waiting for the memory to output the data 
-            when MEM_WAIT => state_next <= return_curr;
-            
-            when WRITE_RES => state_next <= MEM_WAIT;
+                        
+            when WRITE_RES => state_next <= SIM_END;
             
             when SIM_END => if(i_start = '1') then 
                                 state_next <= SIM_END;
