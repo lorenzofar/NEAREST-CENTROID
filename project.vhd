@@ -17,24 +17,29 @@ end project_reti_logiche;
 
 architecture Behavioral of project_reti_logiche is  
 
--- Here I define the state necessary to carry out the computation
--- the first one is the IDLE state, which waits for the start signal
 type state is (IDLE, LOAD_XP, LOAD_YP, STORE_XP, STORE_YP, LOAD_MASK, STORE_MASK, CHECK_MASK, LOAD_XC, LOAD_YC, STORE_XC, STORE_YC, COMPUTE_DIST, CHECK_DIST, WRITE_RES, SIM_END);
 
+-- These signals are used to store the coordinates of the centroid and the main point, as well as the reference mask and output mask
 signal px_curr, px_next, py_curr, py_next, cx_curr, cx_next, cy_curr, cy_next, MASK, omask_curr, omask_next: std_logic_vector(7 downto 0) := (others => '0');
 
+-- These signals are used to keep track of the current centroid, in order to stop computation and to access vectors by index
 signal centroid_curr, centroid_next: std_logic_vector(2 downto 0) := (others => '0');
 
+-- These signals are used to manage the state the FSM is into
 signal state_curr, state_next : state := IDLE;
 
+-- These signals are used to store the current minimum distance and the temporary computed distance
 signal dmin_curr, dmin_next, dtemp: std_logic_vector (8 downto 0) := (others => '0');  
 
+-- These signals are instead used to manage the done output once the simulation has ended
 signal done_curr, done_next : std_logic := '0';
     
     begin
 
--- Here I define the process to handle reset signals and clock steps
-    process(i_clk, i_rst)
+    -- This process handles clock and reset signals 
+    -- When we are on the rising edge of the i_clk signal we update the current value of the several signals
+    -- When instead we are on the rising edge of the i_rst signal we put the system back in the initial state, ready to start a new simulation
+    CLOCK_PROCESS : process(i_clk, i_rst)
     begin
         if(i_rst = '1') then
            centroid_curr <= (others => '0');
@@ -55,6 +60,11 @@ signal done_curr, done_next : std_logic := '0';
         end if;
     end process;
 
+    -- This process handles the data received from the memory
+    -- According to the state the FSM is into, signals are updated
+    -- Before we check for the state, the current value of the signals is assigned to the next one, in order to keep the information
+    -- Then, after determining the state, we update just one signal
+    -- If we are in a state that does not need to read from memory, we do nothing
     DATAUPDATE_PROCESS : process(i_data) 
     begin
         px_next <= px_curr;
@@ -72,27 +82,31 @@ signal done_curr, done_next : std_logic := '0';
         end case;
     end process;
     
+    -- This process is responsible of managing the FSM's states and of carrying out the computation
+    -- It is sensible to the i_start signal to start the simulation, to the i_rst signal to reset the system,
+    -- to the state_curr signal to perform the specific operations of each state and to the centroid_curr signal to trigger a new cycle when the current centroid changes
     NEXTSTATE_PROCESS : process(state_curr, i_start, i_rst, centroid_curr)
     begin
         if(i_rst = '1') then
+            -- Here we set all the next values of signals to 0, in order to reset the system and start again
             centroid_next <= (others => '0');
             done_next <= '0';
             omask_next <= (others => '0');
             dmin_next <= (others => '0');      
             state_next <= IDLE;
         else 
-
+            -- Here we assign the current value of signals to the next one, in order to keep information
             omask_next <= omask_curr;
             dmin_next <= dmin_curr;       
             centroid_next <= centroid_curr;
             done_next <= '0';
             
+            -- Then we determine in which state the FSM is 
             case state_curr is       
-                when IDLE =>
-                            if(i_start = '1') then
-                                state_next <= LOAD_XP;
-                            else state_next <= IDLE;
-                            end if;
+                when IDLE =>    if(i_start = '1') then
+                                    state_next <= LOAD_XP; -- The system received the start signal, we start the simulation
+                                else state_next <= IDLE; -- We continue to wait for the i_start signal to be 1
+                                end if;
     
                 when LOAD_XP => state_next <= STORE_XP;                   
                 when STORE_XP => state_next <= LOAD_YP;   
@@ -100,8 +114,9 @@ signal done_curr, done_next : std_logic := '0';
                 when STORE_YP => state_next <= LOAD_MASK;
                 when LOAD_MASK => state_next <= STORE_MASK;
                 when STORE_MASK => state_next <= CHECK_MASK;
-                                   
-                when CHECK_MASK => -- Check whether the current centroid is enabled or skip                                
+                                  
+                -- Here 
+                when CHECK_MASK =>
                                     if( centroid_curr = "111") then 
                                         state_next <= WRITE_RES;
                                     else 
