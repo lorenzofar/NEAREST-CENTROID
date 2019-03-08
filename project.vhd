@@ -21,13 +21,13 @@ architecture Behavioral of project_reti_logiche is
 -- the first one is the IDLE state, which waits for the start signal
 type state is (IDLE, LOAD_XP, LOAD_YP, STORE_XP, STORE_YP, LOAD_MASK, STORE_MASK, CHECK_MASK, LOAD_XC, LOAD_YC, STORE_XC, STORE_YC, COMPUTE_DIST, CHECK_DIST, WRITE_RES, SIM_END);
 
-signal P_X, P_Y, C_X, C_Y, MASK, omask_curr, omask_next: std_logic_vector(7 downto 0) := "00000000";
+signal px_curr, px_next, py_curr, py_next, cx_curr, cx_next, cy_curr, cy_next, MASK, omask_curr, omask_next: std_logic_vector(7 downto 0) := (others => '0');
 
-signal centroid_curr, centroid_next: std_logic_vector(2 downto 0) := "000";
+signal centroid_curr, centroid_next: std_logic_vector(2 downto 0) := (others => '0');
 
 signal state_curr, state_next : state := IDLE;
 
-signal dmin_curr, dmin_next, dtemp: std_logic_vector (8 downto 0) := "000000000";  
+signal dmin_curr, dmin_next, dtemp: std_logic_vector (8 downto 0) := (others => '0');  
 
 signal done_curr, done_next : std_logic := '0';
     
@@ -48,22 +48,26 @@ signal done_curr, done_next : std_logic := '0';
             done_curr <= done_next;
             dmin_curr <= dmin_next;
             state_curr <= state_next;
+            px_curr <= px_next;
+            py_curr <= py_next;
+            cx_curr <= cx_next;
+            cy_curr <= cy_next;
         end if;
     end process;
-    
-    DATAUPDATE_PROCESS : process(i_data)
+
+    DATAUPDATE_PROCESS : process(i_data) 
     begin
-        P_X <= P_X;
-        P_Y <= P_Y;
-        C_Y <= C_Y;
-        C_X <= C_X;
+        px_next <= px_curr;
+        py_next <= py_curr;
+        cx_next <= cx_curr;
+        cy_next <= cy_curr;
         MASK <= MASK;
         case(state_curr) is
-            when STORE_XP => P_X <= i_data;
-            when STORE_YP => P_Y <= i_data;
+            when STORE_XP => px_next <= i_data;
+            when STORE_YP => py_next <= i_data;
+            when STORE_XC => cx_next <= i_data;
+            when STORE_YC => cy_next <= i_data;
             when STORE_MASK => MASK <= i_data;
-            when STORE_XC => C_X <= i_data;
-            when STORE_YC => C_Y <= i_data;
             when others => null;
         end case;
     end process;
@@ -81,9 +85,8 @@ signal done_curr, done_next : std_logic := '0';
             omask_next <= omask_curr;
             dmin_next <= dmin_curr;       
             centroid_next <= centroid_curr;
-            dmin_next <= dmin_curr;
             done_next <= '0';
-
+            
             case state_curr is       
                 when IDLE =>
                             if(i_start = '1') then
@@ -117,7 +120,7 @@ signal done_curr, done_next : std_logic := '0';
                 when STORE_XC => state_next <= LOAD_YC;
                 when STORE_YC => state_next <= COMPUTE_DIST;
                                                                     
-                when COMPUTE_DIST => dtemp <= std_logic_vector(abs(signed(unsigned('0'&P_X) - unsigned('0'&C_X))) + abs(signed(unsigned('0'&P_Y) - unsigned('0'&C_Y))));
+                when COMPUTE_DIST => dtemp <= std_logic_vector(abs(signed(unsigned('0'&px_curr) - unsigned('0'&cx_curr))) + abs(signed(unsigned('0'&py_curr) - unsigned('0'&cy_curr))));
                                      state_next <= CHECK_DIST;
                          
                          -- The distance is not initialized -> store & save
@@ -155,42 +158,42 @@ signal done_curr, done_next : std_logic := '0';
                     o_address <= "0000000000010001";
                     o_en <= '1';
                     o_we <= '0';
-                    o_data <= "00000000";
+                    o_data <= (others => '0');
         when LOAD_YP => 
                     o_address <= "0000000000010010";
                     o_en <= '1';
                     o_we <= '0';
-                    o_data <= "00000000";
+                    o_data <= (others => '0');
         when LOAD_MASK => 
-                    o_address <= "0000000000000000";
+                    o_address <= (others => '0');
                     o_en <= '1';
                     o_we <= '0';
-                    o_data <= "00000000";
+                    o_data <= (others => '0');
         when LOAD_XC => 
                     o_address <= std_logic_vector(unsigned("000000000000"&centroid_curr&"0") + 1);
                     o_en <= '1';
                     o_we <= '0';
-                    o_data <= "00000000";
+                    o_data <= (others => '0');
         when LOAD_YC => 
                     o_address <= std_logic_vector(unsigned("000000000000"&centroid_curr&"0") + 2);
                     o_en <= '1';
                     o_we <= '0';
-                    o_data <= "00000000";
+                    o_data <= (others => '0');
         when WRITE_RES => 
                     o_address <= "0000000000010011";
                     o_en <= '1';
                     o_we <= '1';
                     o_data <= omask_curr;
         when SIM_END => 
-                    o_address <= "0000000000000000";
+                    o_address <= (others => '0');
                     o_en <= '0';
                     o_we <= '0';
-                    o_data <= "00000000";
+                    o_data <= (others => '0');
         when others => 
-                    o_address <= "0000000000000000";
+                    o_address <= (others => '0');
                     o_en <= '0';
                     o_we <= '0';
-                    o_data <= "00000000";                       
+                    o_data <= (others => '0');
     end case;
     end process;
 
