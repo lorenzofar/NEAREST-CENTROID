@@ -29,7 +29,7 @@ signal centroid_curr, centroid_next: std_logic_vector(2 downto 0) := (others => 
 signal state_curr, state_next : state := IDLE;
 
 -- These signals are used to store the current minimum distance and the temporary computed distance
-signal dmin_curr, dmin_next, dtemp: std_logic_vector (8 downto 0) := (others => '0');  
+signal dmin_curr, dmin_next, dtemp: std_logic_vector (8 downto 0) := (others => '1');  
 
 -- These signals are instead used to manage the done output once the simulation has ended
 signal done_curr, done_next : std_logic := '0';
@@ -139,7 +139,7 @@ signal done_curr, done_next : std_logic := '0';
                                      state_next <= CHECK_DIST;
                          
                          -- The distance is not initialized -> store & save
-                when CHECK_DIST =>  if(dmin_curr = "000000000" or dtemp < dmin_curr) then 
+                when CHECK_DIST =>  if(dmin_curr = "111111111" or dtemp < dmin_curr) then 
                                         omask_next <= (others => '0'); -- clear the output mask;                                    
                                         omask_next(to_integer(unsigned(centroid_curr))) <= '1';
                                         dmin_next <= dtemp;
