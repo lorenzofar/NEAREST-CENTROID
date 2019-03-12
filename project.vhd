@@ -20,7 +20,7 @@ architecture Behavioral of project_reti_logiche is
 type state is (IDLE, LOAD_XP, LOAD_YP, STORE_XP, STORE_YP, LOAD_MASK, STORE_MASK, CHECK_MASK, LOAD_XC, LOAD_YC, STORE_XC, STORE_YC, COMPUTE_DIST, CHECK_DIST, WRITE_RES, SIM_END);
 
 -- These signals are used to store the coordinates of the centroid and the main point, as well as the reference mask and output mask
-signal px_curr, px_next, py_curr, py_next, cx_curr, cx_next, cy_curr, cy_next, MASK, omask_curr, omask_next: std_logic_vector(7 downto 0) := (others => '0');
+signal px_curr, px_next, py_curr, py_next, cx_curr, cx_next, cy_curr, cy_next, MASK, omask_curr, omask_next: unsigned(7 downto 0) := (others => '0');
 
 -- These signals are used to keep track of the current centroid, in order to stop computation and to access vectors by index
 signal centroid_curr, centroid_next: std_logic_vector(2 downto 0) := (others => '0');
@@ -29,7 +29,7 @@ signal centroid_curr, centroid_next: std_logic_vector(2 downto 0) := (others => 
 signal state_curr, state_next : state := IDLE;
 
 -- These signals are used to store the current minimum distance and the temporary computed distance
-signal dmin_curr, dmin_next, dtemp: std_logic_vector (8 downto 0) := (others => '1');  
+signal dmin_curr, dmin_next, dtemp: unsigned(8 downto 0) := (others => '1');  
 
 -- These signals are instead used to manage the done output once the simulation has ended
 signal done_curr, done_next : std_logic := '0';
@@ -73,11 +73,11 @@ signal done_curr, done_next : std_logic := '0';
         cy_next <= cy_curr;
         MASK <= MASK;
         case(state_curr) is
-            when STORE_XP => px_next <= i_data;
-            when STORE_YP => py_next <= i_data;
-            when STORE_XC => cx_next <= i_data;
-            when STORE_YC => cy_next <= i_data;
-            when STORE_MASK => MASK <= i_data;
+            when STORE_XP => px_next <= unsigned(i_data);
+            when STORE_YP => py_next <= unsigned(i_data);
+            when STORE_XC => cx_next <= unsigned(i_data);
+            when STORE_YC => cy_next <= unsigned(i_data);
+            when STORE_MASK => MASK <= unsigned(i_data);
             when others => null;
         end case;
     end process;
@@ -117,17 +117,17 @@ signal done_curr, done_next : std_logic := '0';
                                   
                 -- Here 
                 when CHECK_MASK =>
-                                    if( centroid_curr = "111") then 
-                                        state_next <= WRITE_RES;
-                                    else 
-                                        if(MASK(to_integer(unsigned(centroid_curr))) = '1') then                                        
-                                            centroid_next <= centroid_curr;
-                                            state_next <= LOAD_XC;
-                                        elsif(MASK(to_integer(unsigned(centroid_curr))) = '0') then                                  
-                                            centroid_next <= std_logic_vector(unsigned(centroid_curr) + 1);
-                                            state_next <= CHECK_MASK;                                    
-                                        end if;
-                                    end if;
+                    if( centroid_curr = "111" and MASK(to_integer(unsigned(centroid_curr))) = '0') then 
+                        state_next <= WRITE_RES;
+                    else 
+                        if(MASK(to_integer(unsigned(centroid_curr))) = '1') then                                        
+                            centroid_next <= centroid_curr;
+                            state_next <= LOAD_XC;
+                        elsif(MASK(to_integer(unsigned(centroid_curr))) = '0') then                                  
+                            centroid_next <= std_logic_vector(unsigned(centroid_curr) + 1);
+                            state_next <= CHECK_MASK;                                    
+                        end if;
+                    end if;
                                     
                 -- Load and store centroids position
                 when LOAD_XC => state_next <= STORE_XC;
@@ -135,10 +135,17 @@ signal done_curr, done_next : std_logic := '0';
                 when STORE_XC => state_next <= LOAD_YC;
                 when STORE_YC => state_next <= COMPUTE_DIST;
                                                                     
-                when COMPUTE_DIST => dtemp <= std_logic_vector(abs(signed(unsigned('0'&px_curr) - unsigned('0'&cx_curr))) + abs(signed(unsigned('0'&py_curr) - unsigned('0'&cy_curr))));
-                                     state_next <= CHECK_DIST;
+                when COMPUTE_DIST =>
+                    dtemp <= 
+                    to_unsigned(
+                        abs(to_integer(px_curr) - to_integer(cx_curr))
+                        + 
+                        abs(to_integer(py_curr) - to_integer(cy_curr)),
+                        dtemp'length
+                    );
+                    state_next <= CHECK_DIST;
                          
-                         -- The distance is not initialized -> store & save
+                -- The distance is not initialized -> store & save
                 when CHECK_DIST =>  if(dmin_curr = "111111111" or dtemp < dmin_curr) then 
                                         omask_next <= (others => '0'); -- clear the output mask;                                    
                                         omask_next(to_integer(unsigned(centroid_curr))) <= '1';
@@ -148,9 +155,16 @@ signal done_curr, done_next : std_logic := '0';
                                     else 
                                         omask_next(to_integer(unsigned(centroid_curr))) <= '0';
                                     end if;
-                                    centroid_next <= std_logic_vector(unsigned(centroid_curr) + 1);
-                                    state_next <= CHECK_MASK;          
-                            
+                                    
+                                    -- Check whether I arrived at last step
+                                    if(centroid_curr = "111") then
+                                        centroid_next <= centroid_curr;
+                                        state_next <= WRITE_RES;
+                                    else                                                                                
+                                        centroid_next <= std_logic_vector(unsigned(centroid_curr) + 1);                                    
+                                        state_next <= CHECK_MASK;
+                                    end if;                                     
+
                 when WRITE_RES =>   done_next <= '1';
                                     state_next <= SIM_END;
                 
@@ -198,7 +212,7 @@ signal done_curr, done_next : std_logic := '0';
                     o_address <= "0000000000010011";
                     o_en <= '1';
                     o_we <= '1';
-                    o_data <= omask_curr;
+                    o_data <= std_logic_vector(omask_curr);
         when SIM_END => 
                     o_address <= (others => '0');
                     o_en <= '0';
