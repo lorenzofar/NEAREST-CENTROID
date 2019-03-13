@@ -42,11 +42,11 @@ signal done_curr, done_next : std_logic := '0';
     CLOCK_PROCESS : process(i_clk, i_rst)
     begin
         if(i_rst = '1') then
-           centroid_curr <= (others => '0');
-           omask_curr <= (others => '0');
-           done_curr <= '0'; 
-           dmin_curr <= (others => '0');
-           state_curr <= IDLE;
+            centroid_curr <= (others => '0');
+            omask_curr <= (others => '0');
+            done_curr <= '0'; 
+            dmin_curr <= (others => '0');
+            state_curr <= IDLE;
         elsif(rising_edge(i_clk)) then            
             centroid_curr <= centroid_next;
             omask_curr <= omask_next;
@@ -73,11 +73,16 @@ signal done_curr, done_next : std_logic := '0';
         cy_next <= cy_curr;
         MASK <= MASK;
         case(state_curr) is
-            when STORE_XP => px_next <= unsigned(i_data);
-            when STORE_YP => py_next <= unsigned(i_data);
-            when STORE_XC => cx_next <= unsigned(i_data);
-            when STORE_YC => cy_next <= unsigned(i_data);
-            when STORE_MASK => MASK <= unsigned(i_data);
+            when STORE_XP => 
+                px_next <= unsigned(i_data);
+            when STORE_YP =>
+                py_next <= unsigned(i_data);
+            when STORE_XC => 
+                cx_next <= unsigned(i_data);
+            when STORE_YC => 
+                cy_next <= unsigned(i_data);
+            when STORE_MASK => 
+                MASK <= unsigned(i_data);
             when others => null;
         end case;
     end process;
@@ -103,19 +108,25 @@ signal done_curr, done_next : std_logic := '0';
             
             -- Then we determine in which state the FSM is 
             case state_curr is       
-                when IDLE =>    if(i_start = '1') then
-                                    state_next <= LOAD_XP; -- The system received the start signal, we start the simulation
-                                else state_next <= IDLE; -- We continue to wait for the i_start signal to be 1
-                                end if;
+                when IDLE =>
+                    if(i_start = '1') then
+                        state_next <= LOAD_XP; -- The system received the start signal, we start the simulation
+                    else state_next <= IDLE; -- We continue to wait for the i_start signal to be 1
+                    end if;
     
-                when LOAD_XP => state_next <= STORE_XP;                   
-                when STORE_XP => state_next <= LOAD_YP;   
-                when LOAD_YP => state_next <= STORE_YP;   
-                when STORE_YP => state_next <= LOAD_MASK;
-                when LOAD_MASK => state_next <= STORE_MASK;
-                when STORE_MASK => state_next <= CHECK_MASK;
-                                  
-                -- Here 
+                when LOAD_XP => 
+                    state_next <= STORE_XP;                   
+                when STORE_XP => 
+                    state_next <= LOAD_YP;   
+                when LOAD_YP => 
+                    state_next <= STORE_YP;   
+                when STORE_YP => 
+                    state_next <= LOAD_MASK;
+                when LOAD_MASK => 
+                    state_next <= STORE_MASK;
+                when STORE_MASK => 
+                    state_next <= CHECK_MASK;
+                             
                 when CHECK_MASK =>
                     if( centroid_curr = "111" and MASK(to_integer(unsigned(centroid_curr))) = '0') then 
                         state_next <= WRITE_RES;
@@ -130,10 +141,14 @@ signal done_curr, done_next : std_logic := '0';
                     end if;
                                     
                 -- Load and store centroids position
-                when LOAD_XC => state_next <= STORE_XC;
-                when LOAD_YC => state_next <= STORE_YC;
-                when STORE_XC => state_next <= LOAD_YC;
-                when STORE_YC => state_next <= COMPUTE_DIST;
+                when LOAD_XC => 
+                    state_next <= STORE_XC;
+                when LOAD_YC => 
+                    state_next <= STORE_YC;
+                when STORE_XC => 
+                    state_next <= LOAD_YC;
+                when STORE_YC => 
+                    state_next <= COMPUTE_DIST;
                                                                     
                 when COMPUTE_DIST =>
                     dtemp <= 
@@ -146,34 +161,38 @@ signal done_curr, done_next : std_logic := '0';
                     state_next <= CHECK_DIST;
                          
                 -- The distance is not initialized -> store & save
-                when CHECK_DIST =>  if(dmin_curr = "111111111" or dtemp < dmin_curr) then 
-                                        omask_next <= (others => '0'); -- clear the output mask;                                    
-                                        omask_next(to_integer(unsigned(centroid_curr))) <= '1';
-                                        dmin_next <= dtemp;
-                                    elsif(dmin_curr = dtemp) then
-                                        omask_next(to_integer(unsigned(centroid_curr))) <= '1';
-                                    else 
-                                        omask_next(to_integer(unsigned(centroid_curr))) <= '0';
-                                    end if;
-                                    
-                                    -- Check whether I arrived at last step
-                                    if(centroid_curr = "111") then
-                                        centroid_next <= centroid_curr;
-                                        state_next <= WRITE_RES;
-                                    else                                                                                
-                                        centroid_next <= std_logic_vector(unsigned(centroid_curr) + 1);                                    
-                                        state_next <= CHECK_MASK;
-                                    end if;                                     
+                when CHECK_DIST =>  
+                    if(dmin_curr = "111111111" or dtemp < dmin_curr) then 
+                        omask_next <= (others => '0'); -- clear the output mask;                                    
+                        omask_next(to_integer(unsigned(centroid_curr))) <= '1';
+                        dmin_next <= dtemp;
+                    elsif(dmin_curr = dtemp) then
+                        omask_next(to_integer(unsigned(centroid_curr))) <= '1';
+                    else 
+                        omask_next(to_integer(unsigned(centroid_curr))) <= '0';
+                    end if;
+                    
+                    -- Check whether I arrived at last step
+                    if(centroid_curr = "111") then
+                        centroid_next <= centroid_curr;
+                        state_next <= WRITE_RES;
+                    else                                                                                
+                        centroid_next <= std_logic_vector(unsigned(centroid_curr) + 1);                                    
+                        state_next <= CHECK_MASK;
+                    end if;                                     
 
-                when WRITE_RES =>   done_next <= '1';
-                                    state_next <= SIM_END;
+                when WRITE_RES =>   
+                    done_next <= '1';
+                    state_next <= SIM_END;
                 
-                when SIM_END => if(i_start = '1') then
-                                    state_next <= SIM_END;
-                                else 
-                                    done_next <= '0';
-                                    state_next <= IDLE;
-                                end if;
+                when SIM_END => 
+                    if(i_start = '1') then
+                        state_next <= SIM_END;
+                    else 
+                        done_next <= '0';
+                        state_next <= IDLE;
+                    end if;
+
                 when others => null;                
             end case; 
         end if;            
@@ -181,49 +200,49 @@ signal done_curr, done_next : std_logic := '0';
     
     OUT_PROCESS : process(state_curr)
     begin
-    o_done <= done_curr;
-    case(state_curr) is
-        when LOAD_XP => 
-                    o_address <= "0000000000010001";
-                    o_en <= '1';
-                    o_we <= '0';
-                    o_data <= (others => '0');
-        when LOAD_YP => 
-                    o_address <= "0000000000010010";
-                    o_en <= '1';
-                    o_we <= '0';
-                    o_data <= (others => '0');
-        when LOAD_MASK => 
-                    o_address <= (others => '0');
-                    o_en <= '1';
-                    o_we <= '0';
-                    o_data <= (others => '0');
-        when LOAD_XC => 
-                    o_address <= std_logic_vector(unsigned("000000000000"&centroid_curr&"0") + 1);
-                    o_en <= '1';
-                    o_we <= '0';
-                    o_data <= (others => '0');
-        when LOAD_YC => 
-                    o_address <= std_logic_vector(unsigned("000000000000"&centroid_curr&"0") + 2);
-                    o_en <= '1';
-                    o_we <= '0';
-                    o_data <= (others => '0');
-        when WRITE_RES => 
-                    o_address <= "0000000000010011";
-                    o_en <= '1';
-                    o_we <= '1';
-                    o_data <= std_logic_vector(omask_curr);
-        when SIM_END => 
-                    o_address <= (others => '0');
-                    o_en <= '0';
-                    o_we <= '0';
-                    o_data <= (others => '0');
-        when others => 
-                    o_address <= (others => '0');
-                    o_en <= '0';
-                    o_we <= '0';
-                    o_data <= (others => '0');
-    end case;
+        o_done <= done_curr;
+        case(state_curr) is
+            when LOAD_XP => 
+                        o_address <= std_logic_vector(to_unsigned(17, o_adddress'length));
+                        o_en <= '1';
+                        o_we <= '0';
+                        o_data <= (others => '0');
+            when LOAD_YP => 
+                        o_address <= std_logic_vector(to_unsigned(18, o_adddress'length));
+                        o_en <= '1';
+                        o_we <= '0';
+                        o_data <= (others => '0');
+            when LOAD_MASK => 
+                        o_address <= (others => '0');
+                        o_en <= '1';
+                        o_we <= '0';
+                        o_data <= (others => '0');
+            when LOAD_XC => 
+                        o_address <= std_logic_vector(unsigned("000000000000"&centroid_curr&"0") + 1);
+                        o_en <= '1';
+                        o_we <= '0';
+                        o_data <= (others => '0');
+            when LOAD_YC => 
+                        o_address <= std_logic_vector(unsigned("000000000000"&centroid_curr&"0") + 2);
+                        o_en <= '1';
+                        o_we <= '0';
+                        o_data <= (others => '0');
+            when WRITE_RES => 
+                        o_address <= std_logic_vector(to_unsigned(19, o_address'length));
+                        o_en <= '1';
+                        o_we <= '1';
+                        o_data <= std_logic_vector(omask_curr);
+            when SIM_END => 
+                        o_address <= (others => '0');
+                        o_en <= '0';
+                        o_we <= '0';
+                        o_data <= (others => '0');
+            when others => 
+                        o_address <= (others => '0');
+                        o_en <= '0';
+                        o_we <= '0';
+                        o_data <= (others => '0');
+        end case;
     end process;
 
 end Behavioral;
