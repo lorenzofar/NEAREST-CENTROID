@@ -23,7 +23,7 @@ type state is (IDLE, LOAD_XP, LOAD_YP, STORE_XP, STORE_YP, LOAD_MASK, STORE_MASK
 signal px_curr, px_next, py_curr, py_next, cx_curr, cx_next, cy_curr, cy_next, MASK, omask_curr, omask_next: unsigned(7 downto 0) := (others => '0');
 
 -- These signals are used to keep track of the current centroid, in order to stop computation and to access vectors by index
-signal centroid_curr, centroid_next: std_logic_vector(2 downto 0) := (others => '0');
+signal centroid_curr, centroid_next: unsigned(2 downto 0) := (others => '0');
 
 -- These signals are used to manage the state the FSM is into
 signal state_curr, state_next : state := IDLE;
@@ -128,14 +128,14 @@ signal done_curr, done_next : std_logic := '0';
                     state_next <= CHECK_MASK;
                              
                 when CHECK_MASK =>
-                    if( centroid_curr = "111" and MASK(to_integer(unsigned(centroid_curr))) = '0') then 
+                    if( centroid_curr = "111" and MASK(to_integer(centroid_curr)) = '0') then 
                         state_next <= WRITE_RES;
                     else 
-                        if(MASK(to_integer(unsigned(centroid_curr))) = '1') then                                        
+                        if(MASK(to_integer(centroid_curr)) = '1') then                                        
                             centroid_next <= centroid_curr;
                             state_next <= LOAD_XC;
-                        elsif(MASK(to_integer(unsigned(centroid_curr))) = '0') then                                  
-                            centroid_next <= std_logic_vector(unsigned(centroid_curr) + 1);
+                        elsif(MASK(to_integer(centroid_curr)) = '0') then                                  
+                            centroid_next <= centroid_curr + 1;
                             state_next <= CHECK_MASK;                                    
                         end if;
                     end if;
@@ -173,11 +173,11 @@ signal done_curr, done_next : std_logic := '0';
                     end if;
                     
                     -- Check whether I arrived at last step
-                    if(centroid_curr = "111") then
+                    if(centroid_curr = to_unsigned(7, centroid_curr'length)) then
                         centroid_next <= centroid_curr;
                         state_next <= WRITE_RES;
                     else                                                                                
-                        centroid_next <= std_logic_vector(unsigned(centroid_curr) + 1);                                    
+                        centroid_next <= centroid_curr + 1;                                    
                         state_next <= CHECK_MASK;
                     end if;                                     
 
@@ -203,12 +203,12 @@ signal done_curr, done_next : std_logic := '0';
         o_done <= done_curr;
         case(state_curr) is
             when LOAD_XP => 
-                        o_address <= std_logic_vector(to_unsigned(17, o_adddress'length));
+                        o_address <= std_logic_vector(to_unsigned(17, o_address'length));
                         o_en <= '1';
                         o_we <= '0';
                         o_data <= (others => '0');
             when LOAD_YP => 
-                        o_address <= std_logic_vector(to_unsigned(18, o_adddress'length));
+                        o_address <= std_logic_vector(to_unsigned(18, o_address'length));
                         o_en <= '1';
                         o_we <= '0';
                         o_data <= (others => '0');
