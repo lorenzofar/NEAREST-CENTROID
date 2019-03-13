@@ -45,7 +45,7 @@ signal done_curr, done_next : std_logic := '0';
             centroid_curr <= (others => '0');
             omask_curr <= (others => '0');
             done_curr <= '0'; 
-            dmin_curr <= (others => '0');
+            dmin_curr <= (others => '1');
             state_curr <= IDLE;
         elsif(rising_edge(i_clk)) then            
             centroid_curr <= centroid_next;
