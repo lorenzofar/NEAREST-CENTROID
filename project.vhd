@@ -59,43 +59,21 @@ signal done_curr, done_next : std_logic := '0';
             cy_curr <= cy_next;
         end if;
     end process;
-
-    -- This process handles the data received from the memory
-    -- According to the state the FSM is into, signals are updated
-    -- Before we check for the state, the current value of the signals is assigned to the next one, in order to keep the information
-    -- Then, after determining the state, we update just one signal
-    -- If we are in a state that does not need to read from memory, we do nothing
-    DATAUPDATE_PROCESS : process(i_data) 
+    
+    -- This process is responsible of managing the FSM's states and of carrying out the computation
+    -- It is sensible to the i_start signal to start the simulation, to the i_rst signal to reset the system,
+    -- to the state_curr signal to perform the specific operations of each state and to the centroid_curr signal to trigger a new cycle when the current centroid changes
+    NEXTSTATE_PROCESS : process(state_curr, i_start, i_rst, centroid_curr, i_data)
     begin
         px_next <= px_curr;
         py_next <= py_curr;
         cx_next <= cx_curr;
         cy_next <= cy_curr;
         MASK <= MASK;
-        case(state_curr) is
-            when STORE_XP => 
-                px_next <= unsigned(i_data);
-            when STORE_YP =>
-                py_next <= unsigned(i_data);
-            when STORE_XC => 
-                cx_next <= unsigned(i_data);
-            when STORE_YC => 
-                cy_next <= unsigned(i_data);
-            when STORE_MASK => 
-                MASK <= unsigned(i_data);
-            when others => null;
-        end case;
-    end process;
-    
-    -- This process is responsible of managing the FSM's states and of carrying out the computation
-    -- It is sensible to the i_start signal to start the simulation, to the i_rst signal to reset the system,
-    -- to the state_curr signal to perform the specific operations of each state and to the centroid_curr signal to trigger a new cycle when the current centroid changes
-    NEXTSTATE_PROCESS : process(state_curr, i_start, i_rst, centroid_curr)
-    begin
+        done_next <= '0';
         if(i_rst = '1') then
             -- Here we set all the next values of signals to 0, in order to reset the system and start again
             centroid_next <= (others => '0');
-            done_next <= '0';
             omask_next <= (others => '0');
             dmin_next <= (others => '0');      
             state_next <= IDLE;
@@ -104,7 +82,6 @@ signal done_curr, done_next : std_logic := '0';
             omask_next <= omask_curr;
             dmin_next <= dmin_curr;       
             centroid_next <= centroid_curr;
-            done_next <= '0';
             
             -- Then we determine in which state the FSM is 
             case state_curr is       
@@ -117,16 +94,30 @@ signal done_curr, done_next : std_logic := '0';
                 when LOAD_XP => 
                     state_next <= STORE_XP;                   
                 when STORE_XP => 
-                    state_next <= LOAD_YP;   
+                    if(i_data'event) then
+                        px_next <= unsigned(i_data);
+                        state_next <= LOAD_YP;
+                    else 
+                        state_next <= STORE_XP;
+                    end if;   
                 when LOAD_YP => 
                     state_next <= STORE_YP;   
                 when STORE_YP => 
-                    state_next <= LOAD_MASK;
+                    if(i_data'event) then
+                        py_next <= unsigned(i_data);
+                        state_next <= LOAD_MASK;
+                    else 
+                        state_next <= STORE_YP;
+                    end if;   
                 when LOAD_MASK => 
                     state_next <= STORE_MASK;
-                when STORE_MASK => 
-                    state_next <= CHECK_MASK;
-                             
+                when STORE_MASK =>
+                    if(i_data'event) then 
+                        MASK <= unsigned(i_data);
+                        state_next <= CHECK_MASK;
+                    else 
+                        state_next <= STORE_MASK;
+                    end if;
                 when CHECK_MASK =>
                     if( centroid_curr = "111" and MASK(to_integer(centroid_curr)) = '0') then 
                         state_next <= WRITE_RES;
@@ -146,9 +137,19 @@ signal done_curr, done_next : std_logic := '0';
                 when LOAD_YC => 
                     state_next <= STORE_YC;
                 when STORE_XC => 
-                    state_next <= LOAD_YC;
+                    if(i_data'event) then
+                        cx_next <= unsigned(i_data);
+                        state_next <= LOAD_YC;
+                    else
+                        state_next <= STORE_XC;
+                    end if;
                 when STORE_YC => 
-                    state_next <= COMPUTE_DIST;
+                    if(i_data'event) then
+                        cy_next <= unsigned(i_data);
+                        state_next <= COMPUTE_DIST;
+                    else
+                        state_next <= STORE_XC;
+                    end if;
                                                                     
                 when COMPUTE_DIST =>
                     dtemp <= 
