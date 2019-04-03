@@ -90,7 +90,7 @@ signal done_curr, done_next : std_logic := '0';
     -- This process is responsible of managing the FSM's states and of carrying out the computation
     -- It is sensible to the i_start signal to start the simulation, to the i_rst signal to reset the system,
     -- to the state_curr signal to perform the specific operations of each state and to the centroid_curr signal to trigger a new cycle when the current centroid changes
-    NEXTSTATE_PROCESS : process(state_curr, i_start, i_rst, centroid_curr)
+    NEXTSTATE_PROCESS : process(i_clk, i_start, i_rst)
     begin
         if(i_rst = '1') then
             -- Here we set all the next values of signals to 0, in order to reset the system and start again
@@ -201,32 +201,24 @@ signal done_curr, done_next : std_logic := '0';
     OUT_PROCESS : process(state_curr)
     begin
         o_done <= done_curr;
+        o_we <= '0';
+        o_data <= (others => '0');
         case(state_curr) is
             when LOAD_XP => 
                         o_address <= std_logic_vector(to_unsigned(17, o_address'length));
                         o_en <= '1';
-                        o_we <= '0';
-                        o_data <= (others => '0');
             when LOAD_YP => 
                         o_address <= std_logic_vector(to_unsigned(18, o_address'length));
                         o_en <= '1';
-                        o_we <= '0';
-                        o_data <= (others => '0');
             when LOAD_MASK => 
                         o_address <= (others => '0');
                         o_en <= '1';
-                        o_we <= '0';
-                        o_data <= (others => '0');
             when LOAD_XC => 
                         o_address <= std_logic_vector(unsigned("000000000000"&centroid_curr&"0") + 1);
                         o_en <= '1';
-                        o_we <= '0';
-                        o_data <= (others => '0');
             when LOAD_YC => 
                         o_address <= std_logic_vector(unsigned("000000000000"&centroid_curr&"0") + 2);
                         o_en <= '1';
-                        o_we <= '0';
-                        o_data <= (others => '0');
             when WRITE_RES => 
                         o_address <= std_logic_vector(to_unsigned(19, o_address'length));
                         o_en <= '1';
@@ -235,13 +227,9 @@ signal done_curr, done_next : std_logic := '0';
             when SIM_END => 
                         o_address <= (others => '0');
                         o_en <= '0';
-                        o_we <= '0';
-                        o_data <= (others => '0');
             when others => 
                         o_address <= (others => '0');
                         o_en <= '0';
-                        o_we <= '0';
-                        o_data <= (others => '0');
         end case;
     end process;
 
