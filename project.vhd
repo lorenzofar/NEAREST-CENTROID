@@ -1,3 +1,27 @@
+-- ===== SUBCOMPONENTS DESCRIPTION ===== --
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+-- This subcomponent is responsible of computing the manhattan distance between two points
+entity MANHATTAN is
+    Port(ax, ay, bx, by: in unsigned(7 downto 0);
+         dist : out unsigned(8 downto 0));
+end MANHATTAN;
+
+architecture Behavioral of MANHATTAN is
+begin
+    dist <= 
+        to_unsigned(
+            abs(to_integer(ax) - to_integer(bx))
+            + 
+            abs(to_integer(ay) - to_integer(by)),
+            dist'length
+        );
+end;
+
+-- Main module description
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
@@ -33,9 +57,21 @@ signal dmin_curr, dmin_next, dtemp: unsigned(8 downto 0) := (others => '1');
 
 -- These signals are instead used to manage the done output once the simulation has ended
 signal done_curr, done_next : std_logic := '0';
-    
-    begin
 
+-- Declare components
+component MANHATTAN
+    port(
+        ax, ay, bx, by: in unsigned(7 downto 0);
+        dist : out unsigned(8 downto 0));
+end component;
+
+for all : MANHATTAN use entity work.MANHATTAN(Behavioral);    
+        
+begin
+    
+    -- Map components port
+    DIST: MANHATTAN port map (ax => px_curr, ay => py_curr, bx => cx_curr, by => cy_curr, dist => dtemp);
+    
     -- This process handles clock and reset signals 
     -- When we are on the rising edge of the i_clk signal we update the current value of the several signals
     -- When instead we are on the rising edge of the i_rst signal we put the system back in the initial state, ready to start a new simulation
@@ -151,13 +187,6 @@ signal done_curr, done_next : std_logic := '0';
                     state_next <= COMPUTE_DIST;
                                                                     
                 when COMPUTE_DIST =>
-                    dtemp <= 
-                    to_unsigned(
-                        abs(to_integer(px_curr) - to_integer(cx_curr))
-                        + 
-                        abs(to_integer(py_curr) - to_integer(cy_curr)),
-                        dtemp'length
-                    );
                     state_next <= CHECK_DIST;
                          
                 -- The distance is not initialized -> store & save
