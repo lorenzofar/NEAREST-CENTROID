@@ -41,7 +41,7 @@ end project_reti_logiche;
 
 architecture Behavioral of project_reti_logiche is  
 
-type state is (IDLE, LOAD_XP, LOAD_YP, STORE_XP, STORE_YP, LOAD_MASK, STORE_MASK, CHECK_MASK, LOAD_XC, LOAD_YC, STORE_XC, STORE_YC, COMPUTE_DIST, CHECK_DIST, WRITE_RES, SIM_END);
+type state is (IDLE, LOAD_XP, LOAD_YP, STORE_XP, STORE_YP, LOAD_MASK, STORE_MASK, CHECK_MASK, LOAD_XC, LOAD_YC, STORE_XC, STORE_YC, CHECK_DIST, WRITE_RES, SIM_END);
 
 -- These signals are used to store the coordinates of the centroid and the main point, as well as the reference mask and output mask
 signal px_curr, px_next, py_curr, py_next, cx_curr, cx_next, cy_curr, cy_next, MASK, omask_curr, omask_next: unsigned(7 downto 0) := (others => '0');
@@ -184,9 +184,6 @@ begin
                 when STORE_XC => 
                     state_next <= LOAD_YC;
                 when STORE_YC => 
-                    state_next <= COMPUTE_DIST;
-                                                                    
-                when COMPUTE_DIST =>
                     state_next <= CHECK_DIST;
                          
                 -- The distance is not initialized -> store & save
