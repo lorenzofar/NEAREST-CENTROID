@@ -170,7 +170,7 @@ begin
                         if(MASK(to_integer(centroid_curr)) = '1') then                                        
                             centroid_next <= centroid_curr;
                             state_next <= LOAD_XC;
-                        elsif(MASK(to_integer(centroid_curr)) = '0') then                                  
+                        else                              
                             centroid_next <= centroid_curr + 1;
                             state_next <= CHECK_MASK;                                    
                         end if;
