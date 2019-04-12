@@ -140,14 +140,16 @@ begin
             omask_next <= omask_curr;
             dmin_next <= dmin_curr;       
             centroid_next <= centroid_curr;
-            done_next <= '0';
+            done_next <= '0';            
+            state_next <= state_curr;
             
             -- Then we determine in which state the FSM is 
             case state_curr is       
                 when IDLE =>
                     if(i_start = '1') then
                         state_next <= LOAD_XP; -- The system received the start signal, we start the simulation
-                    else state_next <= IDLE; -- We continue to wait for the i_start signal to be 1
+                    else 
+                        state_next <= IDLE; -- We continue to wait for the i_start signal to be 1
                     end if;
     
                 when LOAD_XP => 
@@ -217,9 +219,7 @@ begin
                     else 
                         done_next <= '0';
                         state_next <= IDLE;
-                    end if;
-
-                when others => null;                
+                    end if;         
             end case; 
         end if;            
     end process;
