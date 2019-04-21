@@ -1,3 +1,23 @@
+----------------------------------------------------------------------------------
+-- Company: 
+-- Engineer: Lorenzo Farinelli - 866236
+-- 
+-- Create Date: 04/21/2019 02:04:39 PM
+-- Design Name: Progetto di reti logiche
+-- Module Name: project_reti_logiche- Behavioral
+-- Project Name: 
+-- Target Devices: 
+-- Tool Versions: 
+-- Description: 
+-- 
+-- Dependencies: 
+-- 
+-- Revision:
+-- Revision 0.01 - File Created
+-- Additional Comments:
+-- 
+----------------------------------------------------------------------------------
+
 -- ===== MANHATTAN SUBCOMPONENT===== --
 
 library IEEE;
@@ -259,9 +279,6 @@ begin
                         o_en <= '1';
                         o_we <= '1';
                         o_data <= std_logic_vector(omask_curr);
-            when SIM_END => 
-                            o_address <= (others => '0');
-                            o_en <= '0';
             when others => 
                         o_address <= (others => '0');
                         o_en <= '0';
