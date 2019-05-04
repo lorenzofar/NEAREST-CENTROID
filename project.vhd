@@ -6,7 +6,7 @@
 -- Design Name: Progetto di reti logiche
 -- Module Name: project_reti_logiche- Behavioral
 -- Project Name: 
--- Target Devices: 
+-- Target Devices: Artix-7 xc7a200tfbg484-1
 -- Tool Versions: 
 -- Description: 
 -- 
@@ -18,32 +18,6 @@
 -- 
 ----------------------------------------------------------------------------------
 
--- ===== MANHATTAN SUBCOMPONENT===== --
-
-library IEEE;
-use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.NUMERIC_STD.ALL;
-
--- This subcomponent is responsible of computing the manhattan distance between two points
-entity MANHATTAN is
-    port(
-        ax, ay, bx, by: in unsigned(7 downto 0);
-        dist : out unsigned(8 downto 0)
-    );
-end MANHATTAN;
-
-architecture Behavioral of MANHATTAN is
-begin
-    dist <= 
-        to_unsigned(
-            abs(to_integer(ax) - to_integer(bx))
-            + 
-            abs(to_integer(ay) - to_integer(by)),
-            dist'length
-        );
-end;
-
--- ===== MAIN MODULE ===== --
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
@@ -68,7 +42,7 @@ type state is (IDLE, STORE_XP, STORE_YP, LOAD_MASK, STORE_MASK, CHECK_MASK, STOR
 -- These signals are used to store the coordinates of the centroid and the main point, as well as the reference mask and output mask
 signal px, py, cx, cy, mask, omask: unsigned(7 downto 0) := (others => '0');
 
--- These signals are used to keep track of the current centroid, in order to stop computation and to access vectors by index
+-- This signal is used to keep track of the current centroid, in order to stop computation and to access mask bits
 signal centroid: unsigned(2 downto 0) := (others => '0');
 
 -- These signals are used to manage the state the FSM is into
@@ -77,24 +51,12 @@ signal state_curr, state_next : state := IDLE;
 -- These signals are used to store the current minimum distance and the temporary computed distance
 signal dmin, dtemp: unsigned(8 downto 0) := (others => '1');  
 
--- These signals are instead used to manage the done output once the simulation has ended
-signal done: std_logic := '0';
-
--- Declare components
-component MANHATTAN
-    port(
-        ax, ay, bx, by: in unsigned(7 downto 0);
-        dist : out unsigned(8 downto 0));
-end component;
-
-for all : MANHATTAN use entity work.MANHATTAN(Behavioral);    
+-- This signal is instead used to manage the done output notifying computation end
+signal done: std_logic := '0'; 
         
-begin
+begin    
     
-    -- Map components port
-    DIST: MANHATTAN port map (ax => px, ay => py, bx => cx, by => cy, dist => dtemp);
-    
-     -- This process handles the data received from the memory
+    -- This process handles the data received from the memory
     -- According to the state the FSM is into, signals are updated
     -- If we are in a state that does not need to read from memory, we do nothing
     DATA_PROCESS : process(i_clk, i_rst, i_data)
@@ -132,6 +94,12 @@ begin
         end if;           
     end process;
     
+    -- This process is responsible of managing the output mask
+    -- It updates the signal on the clock's rising edge
+    -- When the FSM is in the CHECK_DIST state it checks whether 
+    -- the current centroid has a new minimum distance or not 
+    -- and updates the output mask accordingly
+    -- In the other states it just sets the current value
     OMASK_PROCESS : process(i_clk, i_rst, state_curr)
     begin
         if(i_rst = '1') then
@@ -152,6 +120,22 @@ begin
         end if;
     end process;
     
+    -- This process computes the Manhattan distance
+    -- of the two points as soon as their coordinates change
+    -- It is not bounded to any particular FSM state
+    DIST_PROCESS: process(px, py, cx, cy)
+    begin
+        dtemp <= 
+        to_unsigned(
+            abs(to_integer(px) - to_integer(cx))
+            + 
+            abs(to_integer(py) - to_integer(cy)),
+            dtemp'length
+        );            
+    end process;
+    
+    -- This state handles the signal storing the minimum distance
+    -- It updates on the clock's falling edge, to avoid interferences with OMASK_PROCESS
     DMIN_PROCESS : process(i_clk, i_rst, state_curr)
     begin
         if(i_rst = '1') then
@@ -165,6 +149,9 @@ begin
         end if;
     end process;
     
+    -- This process updates the counter of the current centroid
+    -- When the FSM is in a state where it does not need to increase the counter, 
+    -- it just keeps the current value
     CENTROID_PROCESS: process(i_clk, i_rst, state_curr)
     begin
         if(i_rst = '1') then
@@ -193,6 +180,9 @@ begin
         end if;
     end process;
     
+    -- This process updates the signal used to notify the end of the computation
+    -- When the FSM is in its final state (SIM_END), its value is the same of the clock
+    -- and goes to 0 when the clock is put to 0, as required by the specification
     DONE_PROCESS : process(i_clk, i_rst, state_curr)        
     begin
         if(i_rst = '1') then
@@ -214,8 +204,8 @@ begin
     end process;
     
     -- This process handles clock and reset signals 
-    -- When we are on the rising edge of the i_clk signal we update the current value of the several signals
-    -- When instead we are on the rising edge of the i_rst signal we put the system back in the initial state, ready to start a new simulation
+    -- When we are on the rising edge of the i_clk signal we update the curren state of the FSM
+    -- When the i_rst signal is set to 1 we put the FSM back in the IDLE state
     CLOCK_PROCESS : process(i_clk, i_rst)
     begin
         if(rising_edge(i_clk)) then
@@ -230,19 +220,15 @@ begin
         end if;
     end process;
     
-    -- This process is responsible of managing the FSM's states and of carrying out the computation
+    -- This process is responsible of managing the FSM's states by setting the next states
     -- It is sensible to the i_start signal to start the simulation, to the i_rst signal to reset the system,
-    -- to the state_curr signal to perform the specific operations of each state and to the centroid signal to trigger a new cycle when the current centroid changes
     NEXTSTATE_PROCESS : process(i_clk, i_start, i_rst)
     begin
         if(i_rst = '1') then
-            -- Here we set all the next values of signals to 0, in order to reset the system and start again
             state_next <= IDLE;
-        else 
-            -- Here we assign the current value of signals to the next one, in order to keep information      
+        else     
             state_next <= state_curr;
             
-            -- Then we determine in which state the FSM is 
             case state_curr is       
                 when IDLE =>                
                     if(i_start = '1') then
@@ -251,7 +237,6 @@ begin
                         state_next <= IDLE; -- We continue to wait for the i_start signal to be 1
                     end if;
                         
-                -- Load working point coordinates and mask  
                 when LOAD_MASK => 
                     state_next <= STORE_MASK;
                  when STORE_MASK => 
@@ -261,7 +246,6 @@ begin
                 when STORE_YP => 
                     state_next <= CHECK_MASK;                
                             
-                -- Check whether the current centroid has to be considered according to mask
                 when CHECK_MASK =>
                     if(centroid = to_unsigned(7, centroid'length) and mask(to_integer(centroid)) = '0') then 
                         state_next <= WRITE_RES;
@@ -273,15 +257,12 @@ begin
                         end if;
                     end if;
                                     
-                -- Load and store centroids position
                 when STORE_XC => 
                     state_next <= STORE_YC;
                 when STORE_YC => 
                     state_next <= CHECK_DIST;
                         
-                -- The distance is not initialized -> store & save
                 when CHECK_DIST =>  
-                    -- Check whether I arrived at last step
                     if(centroid = to_unsigned(7, centroid'length)) then
                         state_next <= WRITE_RES;
                     else                                                                                         
@@ -301,6 +282,10 @@ begin
         end if;      
     end process;
     
+    -- This process updates the signal coming out of the FSM
+    -- It is hence responsible of setting the address from which require data,
+    -- of setting the memory enable signals to read/write data and 
+    -- of setting the o_done signal with the value of done, to notify the end of the computation 
     OUT_PROCESS : process(state_curr, centroid)
     begin
         o_done <= done;
