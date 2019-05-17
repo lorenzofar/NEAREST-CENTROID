@@ -105,7 +105,7 @@ begin
         if(i_rst = '1') then
             omask <= (others => '0');
         else 
-            if(rising_edge(i_clk) and state_curr = CHECK_DIST) then
+            if(falling_edge(i_clk) and state_curr = CHECK_DIST) then
                 if(dmin = "111111111" or dtemp < dmin) then 
                     omask <= (others => '0'); -- clear the output mask;                                    
                     omask(to_integer(unsigned(centroid))) <= '1';
@@ -141,7 +141,7 @@ begin
         if(i_rst = '1') then
             dmin <= (others => '1');
         else
-            if(falling_edge(i_clk) and state_curr = CHECK_DIST and (dmin = "111111111" or dtemp < dmin)) then
+            if(rising_edge(i_clk) and state_curr = CHECK_DIST and (dmin = "111111111" or dtemp < dmin)) then
                 dmin <= dtemp;
             else 
                 dmin <= dmin;
